@@ -22,3 +22,17 @@ This solution is being developed incrementally with a focus on clean separation 
     - Ensures alias uniqueness using atomic operations.
     - Provides deterministic error handling for invalid input and missing aliases.
     - Implementation is intentionally storage-agnostic to allow a future switch to persistent storage without changing the controller.
+  
+
+- **Commit 4**  
+  Added persistence, error handling, and verified the backend end-to-end.
+    - Replaced the service’s in-memory storage with a JPA repository backed by an H2 **file-based** database to ensure shortened URLs persist across application restarts.
+    - Enforced alias uniqueness at the database level and handled collisions gracefully in the service layer.
+    - Introduced global exception handling using `@RestControllerAdvice` to map domain exceptions to appropriate HTTP responses (`400` and `404`), matching the OpenAPI contract.
+    - Updated service unit tests to mock the repository and validate behaviour without requiring a database.
+    - Performed manual end-to-end API verification using `curl`, covering:
+        - URL creation with random and custom aliases
+        - Redirect behaviour (`302`)
+        - Listing and deletion of URLs
+        - Error cases (duplicate alias, missing alias)
+        - Persistence across application restarts

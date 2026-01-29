@@ -1,16 +1,17 @@
 package uk.co.tpximpact.urlshortener.service;
 
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import uk.co.tpximpact.urlshortener.repository.ShortUrlRepository;
+import uk.co.tpximpact.urlshortener.repository.entity.ShortUrlEntity;
 import uk.co.tpximpact.urlshortener.service.exception.BadRequestException;
 import uk.co.tpximpact.urlshortener.service.exception.NotFoundException;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -28,9 +29,14 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
     private static final int GENERATED_ALIAS_LENGTH = 7;
     private static final int MAX_ALIAS_GENERATION_ATTEMPTS = 20;
 
-    private final Map<String, String> store = new ConcurrentHashMap<>();
+    private final ShortUrlRepository repository;
+
+    public UrlShortenerServiceImpl(ShortUrlRepository repository) {
+        this.repository = repository;
+    }
 
     @Override
+    @Transactional
     public String createShortUrl(String fullUrl, String customAlias, String baseUrl) {
         validateFullUrl(fullUrl);
 
@@ -38,7 +44,9 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
             String alias = customAlias.trim();
             validateCustomAlias(alias);
 
-            if (store.putIfAbsent(alias, fullUrl) != null) {
+            try {
+                repository.save(new ShortUrlEntity(alias, fullUrl));
+            } catch (DataIntegrityViolationException ex) {
                 throw new BadRequestException("Alias already taken");
             }
 
@@ -48,8 +56,11 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
         int attempts = 0;
         while (attempts++ < MAX_ALIAS_GENERATION_ATTEMPTS) {
             String alias = generateRandomAlias();
-            if (store.putIfAbsent(alias, fullUrl) == null) {
+            try {
+                repository.save(new ShortUrlEntity(alias, fullUrl));
                 return baseUrl + "/" + alias;
+            } catch (DataIntegrityViolationException ex) {
+                // collision – retry
             }
         }
 
@@ -57,29 +68,33 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String resolveFullUrl(String alias) {
-        String fullUrl = store.get(alias);
-        if (fullUrl == null) {
-            throw new NotFoundException("Alias not found");
-        }
-        return fullUrl;
+        return repository.findByAlias(alias)
+                .map(ShortUrlEntity::getFullUrl)
+                .orElseThrow(() -> new NotFoundException("Alias not found"));
     }
 
     @Override
+    @Transactional
     public void delete(String alias) {
-        if (store.remove(alias) == null) {
+        if (!repository.existsByAlias(alias)) {
             throw new NotFoundException("Alias not found");
         }
+        repository.deleteByAlias(alias);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UrlRecord> listAll(String baseUrl) {
-        List<UrlRecord> records = new ArrayList<>();
-        store.forEach((alias, fullUrl) ->
-                records.add(new UrlRecord(alias, fullUrl, baseUrl + "/" + alias))
-        );
-        records.sort(Comparator.comparing(UrlRecord::alias));
-        return records;
+        return repository.findAll().stream()
+                .map(e -> new UrlRecord(
+                        e.getAlias(),
+                        e.getFullUrl(),
+                        baseUrl + "/" + e.getAlias()
+                ))
+                .sorted(Comparator.comparing(UrlRecord::alias))
+                .toList();
     }
 
     /* ---------- validation ---------- */
