@@ -36,3 +36,11 @@ This solution is being developed incrementally with a focus on clean separation 
         - Listing and deletion of URLs
         - Error cases (duplicate alias, missing alias)
         - Persistence across application restarts
+
+
+- **Commit 5**
+  Containerised the backend using a multi-stage Docker build.
+    - Runs Spring Boot in a lightweight JRE image.
+    - Persists H2 file database via a Docker volume to retain URLs across container restarts.
+    - Added Docker ignore rules and documented build/run commands.
+    - Untested right now
