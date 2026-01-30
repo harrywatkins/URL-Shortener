@@ -1,3 +1,74 @@
+# URL Shortener
+
+## Tech stack
+
+### Backend
+- Java 21
+- Spring Boot
+- Spring Data JPA
+- H2 (file-based persistence)
+- Maven
+- JUnit 5 / Mockito
+
+### Frontend
+- React
+- Vite
+- Plain CSS
+
+### Containerisation
+- Docker (backend only)
+
+---
+
+## Running the application
+
+### Prerequisites
+- Java 21+
+- Node.js 18+
+- npm
+- Docker (optional)
+
+---
+
+## Running locally
+
+### Backend
+
+From the `backend` directory:
+
+```bash
+./mvnw spring-boot:run
+```
+
+The API will be available at:
+
+http://localhost:8080
+
+### Frontend
+
+From the `frontend` directory:
+
+```bash
+ npm install
+npm run dev
+```
+
+The API will be available at:
+
+http://localhost:5173
+
+### Running the backend with Docker
+
+From the backend directory:
+
+```bash
+docker build -t url-shortener-backend .
+docker run -p 8080:8080 url-shortener-backend
+```
+The API will be available at:
+
+http://localhost:8080
+
 ## Implementation Notes
 
 This solution is being developed incrementally with a focus on clean separation of concerns and testability.
